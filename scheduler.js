@@ -1,6 +1,11 @@
 const cron = require('node-cron');
 const axios = require('axios');
 const mongoose = require('mongoose');
+const express = require('express');
+const app = express();
+
+// Use the provided port from the environment variable or a default port
+const PORT = process.env.PORT || 3000;
 
 // Connect to MongoDB
 mongoose.connect('mongodb+srv://apiuser:jiDFy6Jtk5AUz6D6@cluster0.sfztsa4.mongodb.net/?retryWrites=true&w=majority', {
@@ -52,3 +57,15 @@ db.on('error', (error) => {
 
 // Start the cron job
 console.log('Cron job started. It will run every hour.');
+
+// Define an endpoint to trigger the cron job manually
+app.get('/trigger-cron', (req, res) => {
+  // Trigger the cron job immediately when the /trigger-cron endpoint is accessed
+  cron.trigger('0 * * * *');
+  res.send('Cron job triggered manually.');
+});
+
+// Start the Express.js server
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
