@@ -25,8 +25,8 @@ const DataModel = mongoose.model('Data', DataSchema);
 // Define the API URL
 const apiUrl = 'https://tag-sentiment-analyzis-f1a8b1ab8876.herokuapp.com/average_polarity?tag=bitcoin';
 
-// Schedule a task to run every hour
-cron.schedule('0 * * * *', async () => {
+// Function to perform the cron job logic
+async function performCronJob() {
   try {
     // Make a request to the API
     const response = await axios.get(apiUrl);
@@ -48,20 +48,20 @@ cron.schedule('0 * * * *', async () => {
   } catch (error) {
     console.error('Error:', error.message);
   }
-});
+}
+
+// Schedule a task to run every hour
+cron.schedule('0 * * * *', performCronJob);
 
 // Handle MongoDB connection errors
 db.on('error', (error) => {
   console.error('MongoDB connection error:', error);
 });
 
-// Start the cron job
-console.log('Cron job started. It will run every hour.');
-
 // Define an endpoint to trigger the cron job manually
 app.get('/trigger-cron', (req, res) => {
-  // Trigger the cron job immediately when the /trigger-cron endpoint is accessed
-  cron.trigger('0 * * * *');
+  // Trigger the cron job manually when the /trigger-cron endpoint is accessed
+  performCronJob();
   res.send('Cron job triggered manually.');
 });
 
