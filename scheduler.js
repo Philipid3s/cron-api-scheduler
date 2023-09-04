@@ -22,47 +22,59 @@ const DataSchema = new mongoose.Schema({
 });
 const DataModel = mongoose.model('Data', DataSchema);
 
-// Define the API URL
-const apiUrl = 'https://tag-sentiment-analyzis-f1a8b1ab8876.herokuapp.com/average_polarity?tag=bitcoin';
+// Define the API URLs for different tags
+const apiUrls = {
+  bitcoin: 'https://tag-sentiment-analyzis-f1a8b1ab8876.herokuapp.com/average_polarity?tag=bitcoin',
+  dogecoin: 'https://tag-sentiment-analyzis-f1a8b1ab8876.herokuapp.com/average_polarity?tag=dogecoin',
+  ethereum: 'https://tag-sentiment-analyzis-f1a8b1ab8876.herokuapp.com/average_polarity?tag=ethereum',
+};
 
-// Function to perform the cron job logic
-async function performCronJob() {
+// Function to perform the cron job logic for a given tag
+async function performCronJob(tag) {
   try {
-    // Make a request to the API
+    // Make a request to the API for the specified tag
+    const apiUrl = apiUrls[tag];
     const response = await axios.get(apiUrl);
 
     // Extract the data from the response
-    const { average_polarity, tag, timestamp } = response.data;
+    const { average_polarity, tag: responseTag, timestamp } = response.data;
 
     // Create a new document in MongoDB
     const newData = new DataModel({
       average_polarity,
-      tag,
+      tag: responseTag,
       timestamp,
     });
 
     // Save the document to the database
     await newData.save();
 
-    console.log('Data saved to MongoDB:', newData);
+    console.log(`Data saved to MongoDB for tag "${responseTag}":`, newData);
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error(`Error for tag "${tag}":`, error.message);
   }
 }
 
-// Schedule a task to run every hour
-cron.schedule('0 * * * *', performCronJob);
+// Schedule cron jobs for each tag
+cron.schedule('0 * * * *', () => performCronJob('bitcoin'));
+cron.schedule('0 * * * *', () => performCronJob('dogecoin'));
+cron.schedule('0 * * * *', () => performCronJob('ethereum'));
 
 // Handle MongoDB connection errors
 db.on('error', (error) => {
   console.error('MongoDB connection error:', error);
 });
 
-// Define an endpoint to trigger the cron job manually
-app.get('/trigger-cron', (req, res) => {
-  // Trigger the cron job manually when the /trigger-cron endpoint is accessed
-  performCronJob();
-  res.send('Cron job triggered manually.');
+// Define an endpoint to trigger the cron job manually for a specific tag
+app.get('/trigger-cron/:tag', (req, res) => {
+  const { tag } = req.params;
+  if (apiUrls[tag]) {
+    // Trigger the cron job manually for the specified tag
+    performCronJob(tag);
+    res.send(`Cron job for tag "${tag}" triggered manually.`);
+  } else {
+    res.status(400).send(`Tag "${tag}" not found.`);
+  }
 });
 
 // Start the Express.js server
