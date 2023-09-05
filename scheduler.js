@@ -19,6 +19,7 @@ const DataSchema = new mongoose.Schema({
   average_polarity: Number,
   tag: String,
   timestamp: String,
+  price: Number, // New field to store the price
 });
 const DataModel = mongoose.model('Data', DataSchema);
 
@@ -28,6 +29,17 @@ const apiUrls = {
   dogecoin: 'https://tag-sentiment-analyzis-f1a8b1ab8876.herokuapp.com/average_polarity?tag=dogecoin',
   ethereum: 'https://tag-sentiment-analyzis-f1a8b1ab8876.herokuapp.com/average_polarity?tag=ethereum',
 };
+
+// Function to fetch the price of a coin from the CoinGecko API
+async function fetchCoinPrice(coin) {
+  try {
+    const response = await axios.get(`https://api.coingecko.com/api/v3/simple/price?ids=${coin}&vs_currencies=usd`);
+    return response.data[coin].usd;
+  } catch (error) {
+    console.error(`Error fetching price for ${coin}:`, error.message);
+    return null;
+  }
+}
 
 // Function to perform the cron job logic for a given tag
 async function performCronJob(tag) {
@@ -39,17 +51,25 @@ async function performCronJob(tag) {
     // Extract the data from the response
     const { average_polarity, tag: responseTag, timestamp } = response.data;
 
-    // Create a new document in MongoDB
-    const newData = new DataModel({
-      average_polarity,
-      tag: responseTag,
-      timestamp,
-    });
+    // Fetch the price of the coin
+    const price = await fetchCoinPrice(tag);
 
-    // Save the document to the database
-    await newData.save();
+    if (price !== null) {
+      // Create a new document in MongoDB with price data
+      const newData = new DataModel({
+        average_polarity,
+        tag: responseTag,
+        timestamp,
+        price,
+      });
 
-    console.log(`Data saved to MongoDB for tag "${responseTag}":`, newData);
+      // Save the document to the database
+      await newData.save();
+
+      console.log(`Data saved to MongoDB for tag "${responseTag}":`, newData);
+    } else {
+      console.error(`Skipping saving data for tag "${responseTag}" due to price fetch error.`);
+    }
   } catch (error) {
     console.error(`Error for tag "${tag}":`, error.message);
   }
